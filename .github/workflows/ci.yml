@@ -1,0 +1,34 @@
+name: Portable worker and native core
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-14, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e ".[cpu,test]"
+      - run: cmake -S . -B build-ci -DCMAKE_BUILD_TYPE=Release -DS3D_BUILD_PREMIERE=OFF -DS3D_BUILD_CUDA=OFF
+      - run: cmake --build build-ci --config Release --parallel
+      - run: ctest --test-dir build-ci -C Release --output-on-failure
+      - name: Worker and HTTP tests (macOS)
+        if: runner.os == 'macOS'
+        env:
+          S3D_HTTP_TEST: build-ci/s3d_http_tests
+        run: python -m pytest -q
+      - name: Worker tests
+        if: runner.os != 'macOS'
+        run: python -m pytest -q
+      - name: End-to-end external depth demo (Windows)
+        if: runner.os == 'Windows'
+        run: python tools/demo.py --renderer build-ci/Release/s3d_render.exe
+      - name: End-to-end external depth demo (Unix)
+        if: runner.os != 'Windows'
+        run: python tools/demo.py --renderer build-ci/s3d_render

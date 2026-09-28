@@ -1,0 +1,31 @@
+#pragma once
+#include <cstdlib>
+#include <filesystem>
+#include <stdexcept>
+#ifdef _WIN32
+#include "s3d/runtime_location.hpp"
+#endif
+namespace s3d {
+inline std::filesystem::path project_root() {
+#ifdef _WIN32
+  if(const auto* root=_wgetenv(L"S3D_HOME");root && *root)return root;
+  if(auto root=windows_runtime_location();!root.empty())return root;
+  const std::filesystem::path fallback=LR"(@S3D_RUNTIME_FALLBACK@)";
+  if(fallback.empty())throw std::runtime_error("StereoDepth runtime location missing. Run Install.ps1 from the extracted release folder.");
+  return fallback;
+#else
+  if(const auto* root=std::getenv("S3D_HOME"))return root;
+  return R"(@PROJECT_SOURCE_DIR@)";
+#endif
+}
+inline std::filesystem::path cache_root() {
+#ifdef _WIN32
+  if(const auto* root=_wgetenv(L"S3D_CACHE_ROOT"))return root;
+  if(const auto* root=_wgetenv(L"LOCALAPPDATA"))return std::filesystem::path(root)/"StereoDepth/cache";
+#else
+  if(const auto* root=std::getenv("S3D_CACHE_ROOT"))return root;
+  if(const auto* root=std::getenv("HOME"))return std::filesystem::path(root)/"Library/Caches/StereoDepth/cache";
+#endif
+  throw std::runtime_error("No cache directory; set S3D_CACHE_ROOT before launching Premiere");
+}
+}

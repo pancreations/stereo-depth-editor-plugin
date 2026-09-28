@@ -1,0 +1,19 @@
+body { margin: 0; padding: 16px; background: #202124; color: #e8e9eb; font-family: sans-serif; font-size: 12px; }
+header { padding-bottom: 12px; border-bottom: 1px solid #3c3e42; }
+h1 { margin: 0; font-size: 25px; font-weight: 700; } h1 span { color: #8aaeff; font-size: 17px; }
+h2 { color: #a8b7d4; font-size: 11px; letter-spacing: 1px; margin: 0 0 10px; }
+p { color: #aeb2ba; line-height: 1.5; margin: 8px 0; overflow-wrap: break-word; }
+main { overflow-y: auto; } section { padding: 16px 0; border-bottom: 1px solid #36383d; }
+label { display: flex; flex-direction: column; margin-top: 9px; }
+label.check { flex-direction: row; align-items: center; }
+input, select { color: #eee; background: #2d3036; border: 1px solid #4a4f59; border-radius: 4px; padding: 7px; margin-top: 5px; }
+input[type=checkbox] { margin: 0 8px 0 0; }
+button { border: 1px solid #555e6b; border-radius: 5px; padding: 8px 10px; color: #e5e9ef; background: #343a43; margin: 8px 5px 0 0; }
+button.primary { background: #466bca; border-color: #6b91ee; color: white; }
+button:disabled { opacity: 0.4; } progress { width: 100%; margin-top: 12px; }
+.note { color: #d7b87d; } #status.error { color: #ffaaa3; }
+.hidden { display: none; }
+.tabs { display: flex; padding: 8px 0; }
+.tabs button { flex: 1; }
+.tabs button.active { background: #466bca; border-color: #8aaeff; color: white; }
+.intro { padding: 12px; background: #292f3b; border-radius: 6px; color: #d1d9e9; }

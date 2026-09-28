@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css"></head>
+<body>
+  <header><h1>2D <span>to</span> 3D</h1><p>Models and video depth preparation</p></header>
+  <p class="intro">The clip effect generates and caches AI depth as Premiere renders. Use this panel to download models or prepare video-context depth.</p>
+  <div class="tabs"><button id="show-models" class="active">Models</button><button id="show-cache">Video Cache</button></div>
+  <main>
+    <section><h2>SBS PREVIEW</h2>
+      <button id="open-preview" class="primary">Open SBS Preview</button>
+      <p>Capture window: StereoDepth SBS Preview. Resize with aspect locked. Right-click the preview for borderless mode and always-on-top.</p>
+      <p>First use: in Premiere Playback preferences, enable Mercury Transmit and StereoDepth SBS Preview. Select Final Stereo in the clip effect.</p>
+    </section>
+    <section><h2>CONNECTION</h2><button id="connect">Connect local worker…</button><p id="connection">Start the worker, then select connection.json.</p></section>
+    <section id="cache-inputs" class="hidden"><h2>VIDEO CACHE SOURCE</h2>
+      <button id="selected">Use selected clip</button>
+      <label>Source footage / analysis proxy<input id="source" type="text" placeholder="Select original media or an SDR analysis proxy"></label>
+      <button id="browse-source">Browse source…</button>
+      <label class="check"><input id="override" type="checkbox">Depth Pass Override</label>
+      <label>External depth source<input id="depth-source" type="text" placeholder="First numbered image or depth video"></label>
+      <button id="browse-depth">Browse depth…</button>
+      <label>EXR channel<input id="channel" type="text" value="Z"></label>
+      <label>Depth sequence start offset (frames)<input id="depth-offset" type="number" min="0" value="0"></label>
+      <label>Image sequence frame rate<input id="fps" type="text" placeholder="24000/1001 (blank for video)"></label>
+    </section>
+    <section id="models-section"><h2>DEPTH MODEL</h2>
+      <label>AI depth model<select id="model-choice"><option value="">Connect worker to list all models</option></select></label>
+      <p id="model-info">Default: Depth Anything V2 Large. Model size is independent of quality preset.</p>
+      <button id="download-model" disabled>Download Selected Model</button><button id="refresh-models">Refresh Models</button>
+      <p id="model-status" role="status"></p>
+      <label>Model manifest / custom model<input id="model" type="text" placeholder="Select a model above or browse a local manifest"></label>
+      <button id="browse-model">Browse model…</button>
+      <label>Inference device<select id="device"><option value="auto">Automatic</option><option value="cuda">NVIDIA CUDA</option><option value="mps">Apple silicon (MPS / CoreML)</option><option value="cpu">CPU</option></select></label>
+    </section>
+    <section id="temporal-section" class="hidden"><h2>TEMPORAL STABILIZATION</h2>
+      <label class="check"><input id="temporal" type="checkbox">Temporal Stabilization</label>
+      <label>Stabilization Strength<input id="temporal-strength" type="number" min="0" max="1" step="0.05" value="0.6"></label>
+      <label>Motion Sensitivity<input id="motion" type="number" min="0" max="1" step="0.05" value="0.7"></label>
+      <label>Edge Preservation<input id="temporal-edge" type="number" min="0" max="1" step="0.05" value="0.8"></label>
+      <p>Temporal changes reuse inferred depth and build a separate stabilized cache.</p>
+    </section>
+    <section id="quality-section" class="hidden"><h2>CACHE QUALITY</h2>
+      <select id="quality"><option>Preview</option><option selected>Balanced</option><option>High</option><option>Maximum</option></select>
+      <p>Sets inference resolution. Stereo and reconstruction controls are in Effect Controls.</p>
+    </section>
+    <section id="cache-section" class="hidden"><h2>GENERATE AND APPLY</h2>
+      <p id="cache-root">Cache location: not connected</p>
+      <button id="generate" class="primary">Generate Depth Cache</button><button id="cancel" disabled>Cancel</button>
+      <label>Depth Cache Slot<input id="slot" type="number" min="1" max="999999" value="1"></label>
+      <button id="apply">Apply / Bind to Selected Clip</button>
+      <button id="clear" disabled>Clear Current Depth Cache</button>
+    </section>
+    <section><h2>STATUS</h2><progress id="progress" max="100" value="0"></progress><p id="status" role="status">Ready to connect.</p></section>
+    <section><h2>STEREO OUTPUT</h2>
+      <p>In Effect Controls, adjust Depth Strength, Convergence, depth remapping, repair and previews.</p>
+      <p>Use Canvas Fit in Effect Controls to show the whole image or fill each eye with cropped edges. Full-resolution Full SBS needs a double-width output canvas.</p>
+      <p class="note">Automatic AI and the external depth file picker are in Effect Controls. AI inpainting is not included.</p>
+    </section>
+  </main>
+  <script src="panel.js"></script>
+</body></html>

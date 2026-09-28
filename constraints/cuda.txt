@@ -1,0 +1,4 @@
+# RTX 30/40/50 baseline. Install torch/torchvision from the cu128 index first.
+torch==2.7.1
+torchvision==0.22.1
+onnxruntime-gpu==1.23.2

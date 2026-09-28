@@ -1,0 +1,107 @@
+# Generated for a specific release. No recursive deletion or manifest-provided paths.
+[CmdletBinding(SupportsShouldProcess=$true)]
+param([string]$PluginDirectory = '')
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+$operation = '@OPERATION@'
+$expected = @{
+    'StereoDepth.prm' = '@EFFECT_HASH@'
+    'StereoDepthPreview.prm' = '@PREVIEW_HASH@'
+}
+function Assert-PlainPath([string]$Path) {
+    $cursor = [IO.Path]::GetFullPath($Path)
+    while ($cursor) {
+        if (Test-Path -LiteralPath $cursor) {
+            $item = Get-Item -LiteralPath $cursor -Force
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw "Refusing a symbolic link or junction: $cursor"
+            }
+        }
+        $parent = [IO.Path]::GetDirectoryName($cursor)
+        if ($parent -eq $cursor) { break }
+        $cursor = $parent
+    }
+}
+function Get-BytesHash([byte[]]$Bytes) {
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($algorithm.ComputeHash($Bytes))).Replace('-', '') }
+    finally { $algorithm.Dispose() }
+}
+if (-not $PluginDirectory) {
+    $PluginDirectory = Join-Path $env:ProgramFiles 'Adobe\Common\Plug-ins\7.0\MediaCore\StereoDepth'
+}
+if (-not [IO.Path]::IsPathRooted($PluginDirectory)) { throw 'The destination must be an absolute path.' }
+$PluginDirectory = [IO.Path]::GetFullPath($PluginDirectory).TrimEnd('\')
+if ([IO.Path]::GetFileName($PluginDirectory) -cne 'StereoDepth') { throw 'The destination folder must be named StereoDepth.' }
+Assert-PlainPath $PluginDirectory
+if (Get-Process 'Adobe Premiere Pro','Adobe Media Encoder' -ErrorAction SilentlyContinue) {
+    throw 'Close Premiere and Media Encoder first. No files were changed.'
+}
+$runtimeRoot = Join-Path $PSScriptRoot 'runtime'
+$utf8 = New-Object Text.UTF8Encoding($false)
+$configBytes = $utf8.GetBytes("StereoDepth runtime v1`n$runtimeRoot`n")
+$expected['StereoDepth.runtime.txt'] = Get-BytesHash $configBytes
+# These three literal names are the entire scope. No receipt can add paths.
+$names = @('StereoDepth.prm', 'StereoDepthPreview.prm', 'StereoDepth.runtime.txt')
+$payload = @{}
+if ($operation -eq 'Install') {
+    Assert-PlainPath $runtimeRoot
+    if (-not (Test-Path -LiteralPath (Join-Path $runtimeRoot 'worker\stereodepth_worker') -PathType Container)) {
+        throw 'Extract the entire ZIP before installing.'
+    }
+    foreach ($name in $names) {
+        if ($name -eq 'StereoDepth.runtime.txt') { $payload[$name] = $configBytes }
+        else {
+            $source = Join-Path $PSScriptRoot "plugins\$name"
+            Assert-PlainPath $source
+            $payload[$name] = [IO.File]::ReadAllBytes($source)
+        }
+        if ((Get-BytesHash $payload[$name]) -ne $expected[$name]) { throw "Package checksum mismatch: $name" }
+    }
+}
+# Validate every target before changing any target. Existing different files are never overwritten.
+foreach ($name in $names) {
+    $target = Join-Path $PluginDirectory $name
+    Assert-PlainPath $target
+    if (Test-Path -LiteralPath $target) {
+        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { throw "Expected a regular file: $target" }
+        $hash = Get-BytesHash ([IO.File]::ReadAllBytes($target))
+        if ($operation -eq 'Install' -and $hash -ne $expected[$name]) {
+            throw "Preserving existing different file: $target. Use its original release uninstaller or inspect it manually first."
+        }
+        if ($operation -eq 'Uninstall' -and $hash -ne $expected[$name]) {
+            Write-Warning "PRESERVED ALL FILES: $target has different contents. Nothing will be removed because another version may need these files."
+            return
+        }
+    }
+}
+foreach ($name in $names) {
+    $target = Join-Path $PluginDirectory $name
+    Assert-PlainPath $target
+    if ($operation -eq 'Install') {
+        if (Test-Path -LiteralPath $target) { Write-Host "Already installed: $target"; continue }
+        if ($PSCmdlet.ShouldProcess($target, 'Create verified add-on file')) {
+            [IO.Directory]::CreateDirectory($PluginDirectory) | Out-Null
+            Assert-PlainPath $PluginDirectory
+            # CreateNew refuses to overwrite a file even if it appeared after preflight.
+            $stream = [IO.File]::Open($target, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+            try { $stream.Write($payload[$name], 0, $payload[$name].Length) }
+            finally { $stream.Dispose() }
+            Write-Host "Installed: $target"
+        }
+    } else {
+        if (-not (Test-Path -LiteralPath $target)) { Write-Host "Already absent: $target"; continue }
+        if ((Get-BytesHash ([IO.File]::ReadAllBytes($target))) -ne $expected[$name]) {
+            Write-Warning "PRESERVED (different contents): $target"
+            continue
+        }
+        if ($PSCmdlet.ShouldProcess($target, 'Remove this exact release file')) {
+            # LiteralPath, exact leaf only. NEVER delete any directory, recurse, or use a wildcard.
+            Assert-PlainPath $target
+            Remove-Item -LiteralPath $target -ErrorAction Stop
+            Write-Host "Removed: $target"
+        }
+    }
+}
+if ($operation -eq 'Install') { Write-Host 'Native files ready. Follow README-FIRST.txt to set up the worker and models, then restart Premiere.' }
+else { Write-Host 'Checked only the three named add-on files. All folders, runtime files, models, caches, backups and other plug-ins were preserved.' }

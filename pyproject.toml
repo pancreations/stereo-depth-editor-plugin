@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stereodepth-worker"
+version = "0.3.1"
+description = "Local depth preparation worker for the StereoDepth Premiere effect"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.26,<3", "Pillow>=10,<13", "opencv-python-headless>=4.10,<5", "av>=13,<17"]
+
+[project.optional-dependencies]
+cpu = ["onnxruntime>=1.20,<1.27"]
+cuda = ["onnxruntime-gpu>=1.23,<1.27; platform_system == 'Windows' or platform_system == 'Linux'"]
+apple = ["onnxruntime>=1.23,<1.27", "torch>=2.7,<3", "torchvision>=0.22,<1"]
+exr = ["OpenImageIO>=3,<4"]
+video = ["torch>=2.7,<3", "torchvision>=0.22,<1", "einops>=0.4,<1", "easydict>=1.9,<2"]
+da3 = ["torch>=2.7,<3", "torchvision>=0.22,<1", "einops>=0.4,<1", "addict>=2.4,<3", "omegaconf>=2.3,<3", "safetensors>=0.5,<1", "evo>=1.30,<2"]
+test = ["pytest>=8,<10", "onnx>=1.17,<2"]
+
+[project.scripts]
+stereodepth-worker = "stereodepth_worker.server:main"
+
+[tool.setuptools.packages.find]
+where = ["worker"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["worker"]

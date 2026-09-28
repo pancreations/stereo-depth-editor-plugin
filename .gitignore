@@ -1,0 +1,27 @@
+/build*/
+/.venv*/
+/runtime/
+/artifacts/
+/third_party/
+/AfterEffectsSDK_26.5_win/
+/Premiere Pro 26.0 C++ SDK/
+/models/*.onnx
+/models/*.pth
+/models/**/*.safetensors
+/models/**/*.download
+__pycache__/
+.pytest_cache/
+*.egg-info/
+*.pyc
+*.user
+/dist/
+/AfterEffectsSDK*/
+/Premiere*SDK*/
+*.dSYM/
+.DS_Store
+/models/**/*.onnx
+/models/**/*.pth
+/models/**/*.pt
+/models/**/*.bin
+/models/**/*.onnx.data
+/models/**/*.json

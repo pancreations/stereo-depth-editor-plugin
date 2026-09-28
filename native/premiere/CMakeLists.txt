@@ -1,0 +1,60 @@
+if(NOT WIN32 AND NOT APPLE)
+  message(FATAL_ERROR "The Premiere adapter supports Windows x64 and macOS arm64")
+endif()
+set(AE_SDK_ROOT "" CACHE PATH "Adobe shared effect SDK root (contains Examples/Headers)")
+set(PREMIERE_SDK_ROOT "" CACHE PATH "Premiere SDK root (contains Examples/Headers)")
+find_path(AE_HEADERS AE_Effect.h PATHS "${AE_SDK_ROOT}/Examples/Headers" "${AE_SDK_ROOT}/Headers" NO_DEFAULT_PATH REQUIRED)
+find_path(AE_UTILS Param_Utils.h PATHS "${AE_SDK_ROOT}/Examples/Util" "${AE_SDK_ROOT}/Util" NO_DEFAULT_PATH REQUIRED)
+find_path(PR_HEADERS PrSDKPixelFormat.h PATHS "${PREMIERE_SDK_ROOT}/Examples/Headers" "${PREMIERE_SDK_ROOT}/Headers" NO_DEFAULT_PATH REQUIRED)
+configure_file(runtime_config.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/runtime_config.hpp" @ONLY)
+if(APPLE)
+  if(NOT CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+    message(FATAL_ERROR "The macOS Premiere bundle targets Apple silicon; set CMAKE_OSX_ARCHITECTURES=arm64")
+  endif()
+  find_program(REZ_TOOL Rez PATHS /usr/bin REQUIRED)
+  find_path(AE_RESOURCES AE_General.r PATHS "${AE_SDK_ROOT}/Examples/Resources" "${AE_SDK_ROOT}/Resources" "${AE_HEADERS}" NO_DEFAULT_PATH REQUIRED)
+  add_library(StereoDepth MODULE effect.cpp)
+  target_link_libraries(StereoDepth PRIVATE s3d_bridge)
+  set_target_properties(StereoDepth PROPERTIES BUNDLE TRUE BUNDLE_EXTENSION plugin
+    PREFIX "" SUFFIX "" MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in")
+  add_custom_command(TARGET StereoDepth POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:StereoDepth>/Resources"
+    COMMAND "${REZ_TOOL}" -useDF -d Rez=1 -d __arm64__=1
+      -i "${AE_HEADERS}" -i "${AE_HEADERS}/SP" -i "${AE_RESOURCES}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/StereoDepth.r"
+      -o "$<TARGET_BUNDLE_CONTENT_DIR:StereoDepth>/Resources/StereoDepth.rsrc"
+    VERBATIM)
+else()
+  find_program(PIPL_TOOL PiPLtool.exe PATHS "${AE_SDK_ROOT}/Examples/Resources" "${AE_SDK_ROOT}/Resources" NO_DEFAULT_PATH REQUIRED)
+  add_subdirectory(../preview "${CMAKE_CURRENT_BINARY_DIR}/../preview")
+  enable_language(RC)
+  set(RESOURCE "${CMAKE_CURRENT_BINARY_DIR}/StereoDepth.rc")
+  add_custom_command(OUTPUT "${RESOURCE}"
+    COMMAND ${CMAKE_COMMAND} "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DTOOL=${PIPL_TOOL}"
+      "-DHEADERS=${AE_HEADERS}" "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/StereoDepth.r"
+      "-DDESTINATION=${RESOURCE}" -P "${CMAKE_CURRENT_SOURCE_DIR}/pipl.cmake"
+    DEPENDS StereoDepth.r pipl.cmake VERBATIM)
+  add_library(s3d_http STATIC http_client.cpp)
+  target_link_libraries(s3d_http PUBLIC winhttp)
+  add_library(s3d_cuda_runtime STATIC ../gpu/runtime_renderer.cpp)
+  target_include_directories(s3d_cuda_runtime PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+  target_link_libraries(s3d_cuda_runtime PUBLIC stereodepth)
+  add_library(StereoDepth MODULE effect.cpp depth_bridge.cpp platform_win.cpp "${RESOURCE}")
+  target_compile_definitions(StereoDepth PRIVATE WIN32_LEAN_AND_MEAN)
+  target_link_libraries(StereoDepth PRIVATE stereodepth s3d_cuda_runtime s3d_http comdlg32)
+  set_target_properties(StereoDepth PROPERTIES PREFIX "" SUFFIX ".prm")
+endif()
+target_include_directories(StereoDepth PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${PR_HEADERS}" "${AE_HEADERS}" "${AE_HEADERS}/SP" "${AE_UTILS}")
+if(BUILD_TESTING AND WIN32)
+  add_executable(s3d_runtime_location_tests test_runtime_location.cpp)
+  target_link_libraries(s3d_runtime_location_tests PRIVATE stereodepth)
+  add_executable(s3d_http_tests test_http.cpp)
+  target_link_libraries(s3d_http_tests PRIVATE s3d_http)
+  add_executable(s3d_adapter_tests test_adapter.cpp depth_bridge.cpp platform_win.cpp)
+  target_include_directories(s3d_adapter_tests PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" "${PR_HEADERS}" "${AE_HEADERS}" "${AE_HEADERS}/SP")
+  target_link_libraries(s3d_adapter_tests PRIVATE stereodepth s3d_http comdlg32)
+  add_dependencies(s3d_adapter_tests StereoDepth)
+  add_test(NAME premiere_adapter COMMAND s3d_adapter_tests "$<TARGET_FILE:StereoDepth>")
+  add_executable(s3d_gpu_smoke ../gpu/test_runtime.cpp)
+  target_link_libraries(s3d_gpu_smoke PRIVATE s3d_cuda_runtime)
+endif()
